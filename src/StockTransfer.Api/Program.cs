@@ -11,6 +11,8 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 // Scoped (default): one DbContext per HTTP request.
 builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(connectionString));
 
+builder.Services.AddProblemDetails();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -22,6 +24,10 @@ using (var scope = app.Services.CreateScope())
         scope.ServiceProvider.GetRequiredService<AppDbContext>(),
         app.Logger);
 }
+
+// Unhandled exceptions and bare 404s become ProblemDetails; the exception text is logged, not returned.
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
