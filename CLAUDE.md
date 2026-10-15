@@ -18,6 +18,7 @@ Out of scope: login, roles, styling, deployment.
 - Never read or edit bin/, obj/, node_modules/.
 - Keep replies short.
 - Do not automatically execute git operations (stage, commit, init or push) unless explicitly asked
+- Do only the task I name. When it is done, stop and summarize what changed in a few lines. Never start the next task and never edit TASKS.md (I tick boxes and log time myself).
 
 ## Domain
 
