@@ -43,13 +43,13 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## T3 Stock endpoint (5 min)
 
-- [ ] GET /branches/{id}/stock (404 for unknown id)
+- [x] GET /branches/{id}/stock (404 for unknown id)
       Done when: returns all 5 products for each location.
 
 ## T4 Create transfer (20 min)
 
-- [ ] POST /transfers: validation (see CLAUDE.md), Idempotency-Key header
-- [ ] ProblemDetails error responses
+- [x] POST /transfers: validation (see CLAUDE.md), Idempotency-Key header
+- [x] ProblemDetails error responses
       Done when: every 400 case returns a clear message, and the same key twice
       creates exactly one row.
       Be able to explain: filtered index, the unique-violation race handling.
@@ -105,8 +105,8 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T0   | 10  | 5      |
 | T1   | 10  | 15     |
 | T2   | 15  | 15     |
-| T3   | 5   |        |
-| T4   | 20  |        |
+| T3   | 5   | 5      |
+| T4   | 20  | 15     |
 | T5   | 20  |        |
 | T6   | 15  |        |
 | T7   | 25  |        |

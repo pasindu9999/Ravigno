@@ -32,5 +32,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapBranchEndpoints();
+app.MapTransferEndpoints();
 
 app.Run();
