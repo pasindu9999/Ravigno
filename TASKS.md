@@ -16,14 +16,14 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 ---
 
 ## T0 Setup (main, 10 min)
-- [ ] git init; .gitignore (`dotnet new gitignore`, add node_modules/)
-- [ ] CLAUDE.md, .claude/settings.json (deny bin/obj/node_modules), TASKS.md
-- [ ] README.md and AI_USAGE.md stubs
+- [x] git init; .gitignore (`dotnet new gitignore`, add node_modules/)
+- [x] CLAUDE.md, .claude/settings.json (deny bin/obj/node_modules), TASKS.md
+- [x] README.md and AI_USAGE.md stubs
 Done when: first commit on main.
 
 ## T1 Scaffold (10 min)
-- [ ] .NET 8 Web API project, xUnit test project, solution
-- [ ] EF Core SqlServer packages, connection string in appsettings
+- [x] .NET 8 Web API project, xUnit test project, solution
+- [x] EF Core SqlServer packages, connection string in appsettings
 Done when: `dotnet build` passes and the API starts.
 Be able to explain: DbContext lifetime, where the connection string lives.
 
