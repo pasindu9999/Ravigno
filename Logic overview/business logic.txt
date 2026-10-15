@@ -1,0 +1,69 @@
+- 1 central warehouse and three branches in Colombo, Kandy and Galle
+- 5 products and stock quantity per product and locationwise
+
+transfer attributes
+
+- from location
+- to location
+- transfer status
+- product + quantity for one or more lines
+
+states (From -> Action -> To -> Effect on stock)
+
+new -> Create -> Requested -> None
+Requested -> Dispatch -> Dispatched -> Sender −qty
+Dispatched -> Receive -> Received -> Receiver +qty
+Requested -> Cancel -> Cancelled -> None
+
+constraints (Not allowed)-
+
+Receive before dispatch
+Cancel after dispatch
+dispatch after cancel
+
+Requirements given
+
+1. stock of either location always 0 or more
+2. Same transfer only moves stock once per step.
+3. Total stock + in-transit stock is constant. Between dispatch and receive the goods are in neither location
+
+
+Edge cases
+
+1. Double click/retired dsipatch or receive - the subsequent calls must not move stock - must decide whether 409 or 200 with current state
+2. Double click or retried POST can create duplicate transfers. This must be handled uing an Idempotency key.
+
+
+Concurrency
+
+1. Two dispatch requests same time on the same transfer. use atomic guard (WHERE status = 'Requested')
+2. handle race condition dispatching same transfer
+3. Multi product dispatch must be all or nothing
+4. Two different transfers dispatching last units at once. (UPDATE --- SET qty = qty -@n WHERE qty >= @n)
+
+
+vALIDATION
+
+1. Quantitiy of 0 , negative, non integer, very large values
+2. Unknown bracchn or product ID
+
+
+Stock
+
+1. Requesting does not reserve stock. So two requested transfers can exceed remaining stock and first one pass second one fail. So stock availabel message is only advisoty.
+2. Stock check does not happen in dispatch time it happens in request time
+3. Stock shown in the UI can be stale when user clikc.
+
+Errors
+
+400 - Validation
+404 - Not fuond
+409 - insuficient stock, wrong status
+
+
+
+Assumptions
+
+1. The central warehouse also can be a final destination
+2. The transfers are whole number
+3. Seeding on startup - must not duplicate data when restart

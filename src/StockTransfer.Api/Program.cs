@@ -45,3 +45,5 @@ app.MapTransferCancel();
 app.MapTransferList();
 
 app.Run();
+
+public partial class Program { }
