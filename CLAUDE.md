@@ -71,6 +71,12 @@ Out of scope: login, roles, styling, deployment.
 
 Migrate then seed on startup. Must not duplicate data on restart.
 
+## Environment
+
+- Database: SQL Server 2022 in Docker (`docker-compose.yml` at repo root, connection string in `appsettings.json` under `ConnectionStrings:Default`, overridable via env var `ConnectionStrings__Default`). Do not use LocalDB, Express or EF InMemory.
+- Tests use the same container with a unique database name per run, created and dropped by the test fixture.
+- Start it with `docker compose up -d`; wait until healthy before running the API or tests.
+
 ## Tests (real SQL Server, unique DB per run)
 
 Overstock dispatch (409, stock unchanged); double dispatch (moves once, 2nd = 200);
