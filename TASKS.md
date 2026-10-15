@@ -71,16 +71,16 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## T7 Tests (25 min)
 
-- [ ] Real SQL Server test DB, unique name per run, cleaned up after
-- [ ] The 7 tests listed in CLAUDE.md
+- [x] Real SQL Server test DB, unique name per run, cleaned up after
+- [x] The 7 tests listed in CLAUDE.md
       Done when: all green AND each test goes red if you temporarily break its guard
       (for example remove `Quantity >= @n`). This proves the tests check what matters.
 
 ## T8 React screen (30 min)
 
-- [ ] Vite + React + TS in client/; CORS or dev proxy
-- [ ] Request form: from/to, product + qty lines, advisory stock, idempotency key
-- [ ] Transfers list with filter and action buttons; API errors shown inline
+- [x] Vite + React + TS in client/; CORS or dev proxy
+- [x] Request form: from/to, product + qty lines, advisory stock, idempotency key
+- [x] Transfers list with filter and action buttons; API errors shown inline
       Done when: a full request, dispatch and receive works in the browser, and a
       double-click creates one transfer.
 
@@ -109,8 +109,8 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T4   | 20  | 15     |
 | T5   | 20  | 25     |
 | T6   | 15  | 20     |
-| T7   | 25  |        |
-| T8   | 30  |        |
+| T7   | 25  | 30     |
+| T8   | 30  | 25     |
 | T9   | 10  |        |
 
 ## AI mistakes log (feeds AI_USAGE.md)
