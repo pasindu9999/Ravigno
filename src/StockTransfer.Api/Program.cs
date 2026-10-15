@@ -11,6 +11,8 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 // Scoped (default): one DbContext per HTTP request.
 builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(connectionString));
 
+builder.Services.AddProblemDetails();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -23,6 +25,10 @@ using (var scope = app.Services.CreateScope())
         app.Logger);
 }
 
+// Unhandled exceptions and bare 404s become ProblemDetails; the exception text is logged, not returned.
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -32,5 +38,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapBranchEndpoints();
+app.MapTransferEndpoints();
+app.MapTransferDispatch();
+app.MapTransferReceive();
+app.MapTransferCancel();
+app.MapTransferList();
 
 app.Run();
+
+public partial class Program { }

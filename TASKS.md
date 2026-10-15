@@ -43,30 +43,30 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## T3 Stock endpoint (5 min)
 
-- [ ] GET /branches/{id}/stock (404 for unknown id)
+- [x] GET /branches/{id}/stock (404 for unknown id)
       Done when: returns all 5 products for each location.
 
 ## T4 Create transfer (20 min)
 
-- [ ] POST /transfers: validation (see CLAUDE.md), Idempotency-Key header
-- [ ] ProblemDetails error responses
+- [x] POST /transfers: validation (see CLAUDE.md), Idempotency-Key header
+- [x] ProblemDetails error responses
       Done when: every 400 case returns a clear message, and the same key twice
       creates exactly one row.
       Be able to explain: filtered index, the unique-violation race handling.
 
 ## T5 Dispatch (20 min) - write this one yourself, AI explains
 
-- [ ] One transaction: status guard UPDATE, then conditional stock UPDATE per line
-- [ ] 0 rows on guard: 200 if already Dispatched, 404 if missing, else 409
-- [ ] 0 rows on stock: rollback everything, 409 with product name
+- [x] One transaction: status guard UPDATE, then conditional stock UPDATE per line
+- [x] 0 rows on guard: 200 if already Dispatched, 404 if missing, else 409
+- [x] 0 rows on stock: rollback everything, 409 with product name
       Done when (check in SQL after each): dispatch twice moves stock once; an overstock
       dispatch returns 409 and leaves stock and status unchanged.
       Be able to explain: every line, and why rollback also reverts the status change.
 
 ## T6 Receive, cancel, list (15 min)
 
-- [ ] POST /transfers/{id}/receive and /cancel (same guard pattern as T5)
-- [ ] GET /transfers?branchId=&status=
+- [x] POST /transfers/{id}/receive and /cancel (same guard pattern as T5)
+- [x] GET /transfers?branchId=&status=
       Done when: receive before dispatch and cancel after dispatch return 409.
 
 ## T7 Tests (25 min)
@@ -105,10 +105,10 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T0   | 10  | 5      |
 | T1   | 10  | 15     |
 | T2   | 15  | 15     |
-| T3   | 5   |        |
-| T4   | 20  |        |
-| T5   | 20  |        |
-| T6   | 15  |        |
+| T3   | 5   | 5      |
+| T4   | 20  | 15     |
+| T5   | 20  | 25     |
+| T6   | 15  | 20     |
 | T7   | 25  |        |
 | T8   | 30  |        |
 | T9   | 10  |        |

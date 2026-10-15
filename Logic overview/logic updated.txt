@@ -1,0 +1,90 @@
+BUSINESS LOGIC - BRANCH STOCK TRANSFER
+
+Legend: Anything marked [Added by Claude] was not in the original notes.
+Everything else is the original content with spelling, grammar and structure fixed.
+
+
+SCOPE
+
+- 1 central warehouse and 3 branches: Colombo, Kandy and Galle
+- 5 products, with stock quantity tracked per product and per location
+
+
+TRANSFER ATTRIBUTES
+
+- From location
+- To location
+- Transfer status
+- Product + quantity, for one or more lines
+
+
+STATES (From -> Action -> To -> Effect on stock)
+
+- New        -> Create   -> Requested  -> None
+- Requested  -> Dispatch -> Dispatched -> Sender -qty
+- Dispatched -> Receive  -> Received   -> Receiver +qty
+- Requested  -> Cancel   -> Cancelled  -> None
+
+
+CONSTRAINTS (not allowed)
+
+- Receive before dispatch
+- Cancel after dispatch
+- Dispatch after cancel
+- [Added by Claude] Cancelling a transfer twice, or receiving/cancelling from any other wrong status. All of these get the same 409 response.
+
+
+REQUIREMENTS GIVEN
+
+1. Stock at either location is always 0 or more.
+2. The same transfer only moves stock once per step.
+3. Total stock + in-transit stock is constant. Between dispatch and receive, the goods are in neither location.
+
+
+EDGE CASES
+
+1. Double-click or retried dispatch/receive: the subsequent calls must not move stock again. I must decide whether to return 409, or 200 with the current state.
+   - [Added by Claude - suggested decision, confirm you agree] An exact repeat of the same action on the same transfer (dispatch twice, receive twice) returns 200 with the current state, so a client retrying after a timeout sees success. An invalid transition (for example, receive before dispatch) returns 409.
+2. Double-click or retried POST can create duplicate transfers. This must be handled using an Idempotency key.
+   - [Added by Claude - decision needed] Where to store the key: either a unique column on the transfer, or a separate table with a unique constraint on the key. Pick one and be ready to explain why.
+
+
+CONCURRENCY
+
+1. Two dispatch requests at the same time on the same transfer: use an atomic guard (WHERE status = 'Requested').
+2. Handle the race condition when dispatching the same transfer.
+3. Multi-product dispatch must be all or nothing (one transaction).
+4. Two different transfers dispatching the last units at once: UPDATE ... SET qty = qty - @n WHERE qty >= @n
+
+
+VALIDATION
+
+1. Quantity of 0, negative, non-integer, or very large values.
+2. Unknown branch or product ID.
+3. [Added by Claude] From and to location must be different.
+4. [Added by Claude] A transfer must have at least one line.
+5. [Added by Claude] The same product appearing twice in one request. Suggested default: reject with 400 (alternative: merge the lines). Decide and note it in the README.
+
+
+STOCK
+
+1. Requesting does not reserve stock. So two requested transfers can together exceed the remaining stock: the first one to dispatch passes and the second one fails. The stock-available message in the UI is therefore only advisory.
+2. [Added by Claude - replaces the original wording, which said the stock check happens at request time and not at dispatch time, and contradicted the concurrency section] The stock check at request time is advisory only, to help the user. The authoritative check happens at dispatch time (qty >= @n) and rejects with 409 if stock is insufficient.
+3. Stock shown in the UI can be stale by the time the user clicks.
+4. [Added by Claude] Add a database-level CHECK (Quantity >= 0) as a backstop, in addition to the conditional UPDATE.
+
+
+ERRORS
+
+- 400 - Validation
+- 404 - Not found
+- 409 - Insufficient stock, wrong status
+- [Added by Claude] Reason for no 422: one simple, consistent convention is enough for this scope.
+
+
+ASSUMPTIONS
+
+1. The central warehouse can also be a final destination.
+2. Transfer quantities are whole numbers.
+3. Seeding runs on startup and must not duplicate data on restart.
+4. [Added by Claude] The warehouse is modelled as just another location, in the same table as the branches.

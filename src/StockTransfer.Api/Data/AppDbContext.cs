@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StockTransfer.Api.Models;
 
 namespace StockTransfer.Api.Data;
@@ -11,6 +12,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();
     public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<TransferLine> TransferLines => Set<TransferLine>();
+
+    // SQL Server datetime2 comes back with Kind=Unspecified, which serialises without a trailing Z.
+    // Mark every DateTime as UTC on read; nothing changes on write and the column type stays the same (no migration).
+    protected override void ConfigureConventions(ModelConfigurationBuilder c)
+    {
+        c.Properties<DateTime>().HaveConversion<UtcConverter>();
+        c.Properties<DateTime?>().HaveConversion<NullableUtcConverter>();
+    }
+
+    private sealed class UtcConverter() : ValueConverter<DateTime, DateTime>(
+        v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+    private sealed class NullableUtcConverter() : ValueConverter<DateTime?, DateTime?>(
+        v => v, v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
 
     protected override void OnModelCreating(ModelBuilder b)
     {

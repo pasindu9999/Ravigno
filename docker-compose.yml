@@ -3,10 +3,11 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
-      # Throwaway local-only password.
+      # The sa password is for a throwaway local container only. Never reuse it anywhere real.
       MSSQL_SA_PASSWORD: "StockTransfer_Dev1"
     ports:
-      - "1433:1433"
+      # Bound to loopback so the database is not reachable from other machines.
+      - "127.0.0.1:1433:1433"
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
