@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StockTransfer.Api.Data;
+using StockTransfer.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,5 +30,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.MapBranchEndpoints();
 
 app.Run();

@@ -12,6 +12,8 @@
   - Claude's first T1 plan chose LocalDB because my prompt left the database blank
   - I rejected it before any code was written and required SQL Server 2022 in Docker
   - Why is that: LocalDB is Windows-only and I am not sure if the reviewer is not using other operating systesm, Docker gives every reviewer the same setup, and tests can create and drop a uniquely named database on the same container
+  - Added a DB CHECK on TransferLines.Quantity after a review pass found negative quantities could bypass the dispatch guard - T2 review
+  - No issue found on T3 task
 - **Plan first, one task per session, no git by AI**
   - Written into CLAUDE.md so Claude plans, stops after each task, and never commits
 
