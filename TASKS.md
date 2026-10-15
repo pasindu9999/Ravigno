@@ -56,9 +56,9 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## T5 Dispatch (20 min) - write this one yourself, AI explains
 
-- [ ] One transaction: status guard UPDATE, then conditional stock UPDATE per line
-- [ ] 0 rows on guard: 200 if already Dispatched, 404 if missing, else 409
-- [ ] 0 rows on stock: rollback everything, 409 with product name
+- [x] One transaction: status guard UPDATE, then conditional stock UPDATE per line
+- [x] 0 rows on guard: 200 if already Dispatched, 404 if missing, else 409
+- [x] 0 rows on stock: rollback everything, 409 with product name
       Done when (check in SQL after each): dispatch twice moves stock once; an overstock
       dispatch returns 409 and leaves stock and status unchanged.
       Be able to explain: every line, and why rollback also reverts the status change.
@@ -107,7 +107,7 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T2   | 15  | 15     |
 | T3   | 5   | 5      |
 | T4   | 20  | 15     |
-| T5   | 20  |        |
+| T5   | 20  | 25     |
 | T6   | 15  |        |
 | T7   | 25  |        |
 | T8   | 30  |        |
