@@ -91,8 +91,9 @@ export default function RequestForm({ branches, refreshKey, onChanged }: Props) 
 
   return (
     <form onSubmit={submit} noValidate>
-      <h2>Request a transfer</h2>
-      <p>
+      <fieldset>
+      <legend>Request a transfer</legend>
+      <div className="row">
         <label>
           From{' '}
           <select value={fromId} onChange={(e) => setFromId(e.target.value)}>
@@ -111,11 +112,11 @@ export default function RequestForm({ branches, refreshKey, onChanged }: Props) 
             ))}
           </select>
         </label>
-      </p>
+      </div>
 
-      {fromId && stockError && <p>Could not load stock: {stockError}</p>}
+      {fromId && stockError && <p className="error" role="alert">Could not load stock: {stockError}</p>}
       {fromId && stock && (
-        <div>
+        <div className="stock">
           <strong>Available at {stock.branchName} (advisory only, checked again on dispatch):</strong>
           <ul>
             {stock.items.map((i) => (
@@ -126,28 +127,30 @@ export default function RequestForm({ branches, refreshKey, onChanged }: Props) 
       )}
 
       {lines.map((l, i) => (
-        <p key={i}>
-          <select value={l.productId} onChange={(e) => updateLine(i, { productId: e.target.value })}>
+        <div className="line-row" key={i}>
+          <select aria-label="Product" value={l.productId} onChange={(e) => updateLine(i, { productId: e.target.value })}>
             {stock?.items.map((p) => (
               <option key={p.productId} value={p.productId}>{p.productName}</option>
             ))}
           </select>{' '}
           <input
+            aria-label="Quantity"
             type="number"
             placeholder="quantity"
             value={l.quantity}
             onChange={(e) => updateLine(i, { quantity: e.target.value })}
           />{' '}
           <button type="button" onClick={() => removeLine(i)}>Remove</button>
-        </p>
+        </div>
       ))}
-      <p>
+      <div className="buttons">
         <button type="button" onClick={addLine} disabled={!stock}>Add line</button>{' '}
-        <button type="submit" disabled={submitting}>Submit</button>
-      </p>
+        <button type="submit" className="primary" disabled={submitting}>Submit</button>
+      </div>
+      </fieldset>
 
-      {error && <p>Error: {error}</p>}
-      {result && <p>{result}</p>}
+      {error && <p className="error" role="alert">Error: {error}</p>}
+      {result && <p className="success">{result}</p>}
     </form>
   )
 }

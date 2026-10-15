@@ -52,7 +52,7 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
   return (
     <div>
       <h2>Transfers</h2>
-      <p>
+      <div className="row">
         <label>
           Status{' '}
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -71,8 +71,9 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
             ))}
           </select>
         </label>
-      </p>
-      {listError && <p>Could not load transfers: {listError}</p>}
+      </div>
+      {listError && <p className="error" role="alert">Could not load transfers: {listError}</p>}
+      <div className="table-wrap">
       <table>
         <thead>
           <tr>
@@ -87,26 +88,36 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
                 <td>{t.id}</td>
                 <td>{t.from.name}</td>
                 <td>{t.to.name}</td>
-                <td>{t.status}</td>
+                <td><span className={`status status-${t.status.toLowerCase()}`}>{t.status}</span></td>
                 <td>{new Date(t.createdAt).toLocaleString()}</td>
-                <td>{t.lines.map((l) => `${l.productName} x ${l.quantity}`).join(', ')}</td>
                 <td>
-                  {t.status === 'Requested' && (
-                    <>
-                      <button disabled={disabled} onClick={() => run(t.id, 'dispatch')}>Dispatch</button>{' '}
-                      <button disabled={disabled} onClick={() => run(t.id, 'cancel')}>Cancel</button>
-                    </>
-                  )}
-                  {t.status === 'Dispatched' && (
-                    <button disabled={disabled} onClick={() => run(t.id, 'receive')}>Receive</button>
-                  )}
-                  {rowErrors[t.id] && <div>Error: {rowErrors[t.id]}</div>}
+                  <ul>
+                    {t.lines.map((l, i) => (
+                      <li key={i}>{`${l.productName} x ${l.quantity}`}</li>
+                    ))}
+                  </ul>
+                </td>
+                <td className="actions">
+                  <div className="buttons">
+                    {t.status === 'Requested' && (
+                      <>
+                        <button disabled={disabled} onClick={() => run(t.id, 'dispatch')}>Dispatch</button>{' '}
+                        <button disabled={disabled} onClick={() => run(t.id, 'cancel')}>Cancel</button>
+                      </>
+                    )}
+                    {t.status === 'Dispatched' && (
+                      <button disabled={disabled} onClick={() => run(t.id, 'receive')}>Receive</button>
+                    )}
+                  </div>
+                  {rowErrors[t.id] && <div className="error" role="alert">Error: {rowErrors[t.id]}</div>}
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+      </div>
+      {transfers.length === 0 && !listError && <p className="empty">No transfers found.</p>}
     </div>
   )
 }

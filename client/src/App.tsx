@@ -16,9 +16,9 @@ export default function App() {
   const onChanged = () => setRefreshKey((k) => k + 1)
 
   return (
-    <div>
+    <div className="container">
       <h1>Branch Stock Transfer</h1>
-      {error && <p>Could not load branches: {error}</p>}
+      {error && <p className="error" role="alert">Could not load branches: {error}</p>}
       <RequestForm branches={branches} refreshKey={refreshKey} onChanged={onChanged} />
       <TransfersList branches={branches} refreshKey={refreshKey} onChanged={onChanged} />
     </div>
