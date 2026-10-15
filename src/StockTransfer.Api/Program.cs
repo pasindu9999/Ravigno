@@ -40,5 +40,8 @@ app.UseHttpsRedirection();
 app.MapBranchEndpoints();
 app.MapTransferEndpoints();
 app.MapTransferDispatch();
+app.MapTransferReceive();
+app.MapTransferCancel();
+app.MapTransferList();
 
 app.Run();
