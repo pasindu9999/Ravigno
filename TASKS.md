@@ -65,8 +65,8 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## T6 Receive, cancel, list (15 min)
 
-- [ ] POST /transfers/{id}/receive and /cancel (same guard pattern as T5)
-- [ ] GET /transfers?branchId=&status=
+- [x] POST /transfers/{id}/receive and /cancel (same guard pattern as T5)
+- [x] GET /transfers?branchId=&status=
       Done when: receive before dispatch and cancel after dispatch return 409.
 
 ## T7 Tests (25 min)
@@ -108,7 +108,7 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T3   | 5   | 5      |
 | T4   | 20  | 15     |
 | T5   | 20  | 25     |
-| T6   | 15  |        |
+| T6   | 15  | 20     |
 | T7   | 25  |        |
 | T8   | 30  |        |
 | T9   | 10  |        |
