@@ -87,7 +87,8 @@ cancel after dispatch (409); receive adds to receiver; same Idempotency-Key twic
 
 One screen: pick from/to, add product + qty lines, show available stock (advisory), submit.
 Generate the Idempotency-Key once per submit attempt (crypto.randomUUID()) and disable the button while in flight.
-Transfers list with status filter and Dispatch/Receive/Cancel buttons. Show API error text inline. No styling.
+Transfers list with status filter and Dispatch/Receive/Cancel buttons. Show API error text inline.
+Minimal plain CSS is allowed for readability, in one file (client/src/styles.css). No UI library, no CSS framework, no new packages.
 
 ## Out of scope unless time remains
 
