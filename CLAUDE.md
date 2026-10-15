@@ -18,6 +18,7 @@ Out of scope: login, roles, styling, deployment.
 - Never read or edit bin/, obj/, node_modules/.
 - Keep replies short.
 - Do not automatically execute git operations (stage, commit, init or push) unless explicitly asked
+- Do only the task I name. When it is done, stop and summarize what changed in a few lines. Never start the next task and never edit TASKS.md (I tick boxes and log time myself).
 
 ## Domain
 
@@ -69,6 +70,12 @@ Out of scope: login, roles, styling, deployment.
 ## Seeding
 
 Migrate then seed on startup. Must not duplicate data on restart.
+
+## Environment
+
+- Database: SQL Server 2022 in Docker (`docker-compose.yml` at repo root, connection string in `appsettings.json` under `ConnectionStrings:Default`, overridable via env var `ConnectionStrings__Default`). Do not use LocalDB, Express or EF InMemory.
+- Tests use the same container with a unique database name per run, created and dropped by the test fixture.
+- Start it with `docker compose up -d`; wait until healthy before running the API or tests.
 
 ## Tests (real SQL Server, unique DB per run)
 
