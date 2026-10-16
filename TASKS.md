@@ -120,7 +120,8 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T7   | 25  | 30     |
 | T8   | 30  | 25     |
 | T9   | 10  | 10     |
-| T10  |     |        |
+| T10a backend | 35 |    |
+| T10b React   | 15 |    |
 
 ## AI mistakes log (feeds AI_USAGE.md)
 

@@ -11,7 +11,7 @@ public record CreateTransferLine(int ProductId, int Quantity);
 public record CreateTransferRequest(int FromLocationId, int ToLocationId, List<CreateTransferLine>? Lines);
 
 public record LocationRefDto(int Id, string Name);
-public record TransferLineDto(int ProductId, string ProductName, int Quantity);
+public record TransferLineDto(int ProductId, string ProductName, int Quantity, int? ReceivedQuantity);
 public record TransferDto(
     int Id,
     LocationRefDto From,
@@ -35,7 +35,7 @@ public static class TransferEndpoints
         t.IdempotencyKey,
         t.CreatedAt,
         t.Lines.OrderBy(l => l.ProductId)
-            .Select(l => new TransferLineDto(l.ProductId, l.Product.Name, l.Quantity))
+            .Select(l => new TransferLineDto(l.ProductId, l.Product.Name, l.Quantity, l.ReceivedQuantity))
             .ToList());
 
     public static IEndpointRouteBuilder MapTransferEndpoints(this IEndpointRouteBuilder app)

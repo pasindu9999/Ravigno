@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();
     public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<TransferLine> TransferLines => Set<TransferLine>();
+    public DbSet<ReceiveDiscrepancy> ReceiveDiscrepancies => Set<ReceiveDiscrepancy>();
 
     // SQL Server datetime2 comes back with Kind=Unspecified, which serialises without a trailing Z.
     // Mark every DateTime as UTC on read; nothing changes on write and the column type stays the same (no migration).
@@ -69,7 +70,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(x => new { x.TransferId, x.ProductId });
             e.HasOne(x => x.Transfer).WithMany(x => x.Lines).HasForeignKey(x => x.TransferId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
-            e.ToTable(t => t.HasCheckConstraint("CK_TransferLines_Quantity_Range", "[Quantity] > 0 AND [Quantity] <= 1000000"));
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_TransferLines_Quantity_Range", "[Quantity] > 0 AND [Quantity] <= 1000000");
+                // Backstop for the 400 rule: cannot receive more than was sent.
+                t.HasCheckConstraint("CK_TransferLines_ReceivedQuantity_Range",
+                    "[ReceivedQuantity] IS NULL OR ([ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity])");
+            });
+        });
+
+        b.Entity<ReceiveDiscrepancy>(e =>
+        {
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasOne(x => x.TransferLine).WithMany().HasForeignKey(x => new { x.TransferId, x.ProductId }).OnDelete(DeleteBehavior.Cascade);
+            // At most one discrepancy per line, even if the status guard were ever bypassed.
+            e.HasIndex(x => new { x.TransferId, x.ProductId }).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint("CK_ReceiveDiscrepancies_MissingQuantity_Positive", "[MissingQuantity] > 0"));
         });
     }
 }
