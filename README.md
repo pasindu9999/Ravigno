@@ -97,7 +97,7 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - Dispatch, receive and cancel repeat similar code on purpose. Each is short and can be read on its own; a shared helper is on the "another day" list.
 - No paging on `GET /transfers`; it returns every match.
 - The concurrent-dispatch test releases two requests together and repeats 10 rounds. That makes a race likely to show up but cannot prove there is none; the guarantee comes from the single guarded UPDATE.
-- Seven tests only, matching the brief. Not covered: cancel happy path, repeated receive or cancel, validation cases, list filters, a stock-conservation check, the client.
+- Eight tests only: the seven in the brief plus a repeated receive. Not covered: cancel happy path, repeated cancel, validation cases, list filters, a stock-conservation check, the client.
 - The `sa` password in `docker-compose.yml` and `appsettings.json` is for a throwaway local container only. SQL Server is bound to 127.0.0.1 so it is not reachable from other machines. The connection string uses 127.0.0.1 because `localhost` can resolve to `::1`, which the container does not serve. Override it with the `ConnectionStrings__Default` environment variable.
 
 ## With another day
@@ -106,11 +106,11 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - A shared `TransitionAsync` for dispatch, receive and cancel.
 - Paging on the transfer list.
 - Authentication and roles (and scoping idempotency keys to a user).
-- More tests: cancel happy path, repeated actions, validation, list filters, stock conservation, client tests.
+- More tests: cancel happy path, repeated cancel, validation, list filters, stock conservation, client tests.
 - A CHECK constraint on `FromLocationId <> ToLocationId`.
 - A cap on the number of lines per request.
 - Run migrations as a separate step instead of inside the app.
 
 ## Time spent
 
-<fill in: 2 hours 35 minutes>
+<fill in: 2 hours 45 minutes>

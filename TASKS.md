@@ -91,10 +91,18 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
       below), what you wrote or decided yourself
 - [x] Time spent
 
-## T10 Optional rehearsal (10 min)
+## T10 Partial receive (optional, branch feat/partial-receive, ~25 min backend)
 
-- [ ] Think through partial receive (ReceivedQuantity on the line, a difference
-      record). Do NOT build it; be ready to do it live.
+- [ ] TransferLine.ReceivedQuantity (nullable int) + ReceiveDiscrepancy table
+      (TransferLineId, MissingQuantity, Reason, CreatedAt); migration
+- [ ] POST /transfers/{id}/receive accepts an optional body with per-line received quantities
+      (no body = receive everything, so existing behaviour and tests stay valid)
+- [ ] Receiver gets ReceivedQuantity only; the difference is recorded, not added anywhere
+- [ ] Tests: partial receive, received > sent returns 400, double partial receive moves stock once
+- [ ] (only if time is left) frontend: per-line received quantity input on Receive
+      Done when: partial receive adds only the received quantity, a discrepancy row exists,
+      and receiving twice changes nothing.
+      Be able to explain: why the difference is not returned to the sender.
 
 ---
 
@@ -111,7 +119,8 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T6   | 15  | 20     |
 | T7   | 25  | 30     |
 | T8   | 30  | 25     |
-| T9   | 10  | 10      |
+| T9   | 10  | 10     |
+| T10  |     |        |
 
 ## AI mistakes log (feeds AI_USAGE.md)
 

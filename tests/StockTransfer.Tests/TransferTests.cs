@@ -149,6 +149,26 @@ public class TransferTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Receive_Twice_MovesStockOnce()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
+        await SetStock(from, rice, 10);
+        await SetStock(to, rice, 3);
+        var transfer = await Create(from, to, (rice, 4));
+        Assert.Equal(HttpStatusCode.OK, (await Dispatch(transfer.Id)).StatusCode);
+
+        var first = await Receive(transfer.Id);
+        var second = await Receive(transfer.Id);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal("Received", (await second.Content.ReadFromJsonAsync<TransferDto>())!.Status);
+        Assert.Equal(7, await Stock(to, rice)); // 3 + 4, not 3 + 8
+        Assert.Equal(6, await Stock(from, rice));
+        Assert.Equal(TransferStatus.Received, await StatusOf(transfer.Id));
+    }
+
+    [Fact]
     public async Task CreateTransfer_WithSameIdempotencyKeyTwice_CreatesOneTransfer()
     {
         int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
