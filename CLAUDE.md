@@ -34,7 +34,7 @@ Out of scope: login, roles, styling, deployment.
 - Requested -Dispatch-> Dispatched (sender -qty)
 - Dispatched -Receive-> Received (receiver +qty)
 - Requested -Cancel-> Cancelled (no stock effect)
-  Goods in transit are in neither location. Total stock + in-transit is constant.
+  Goods in transit are in neither location. Total stock + in-transit is constant, except goods written off at a partial receive (sent minus received, recorded in ReceiveDiscrepancies, never refunded to the sender).
 
 ## Rules
 
@@ -92,4 +92,4 @@ Minimal plain CSS is allowed for readability, in one file (client/src/styles.css
 
 ## Out of scope unless time remains
 
-Partial receive / damaged goods.
+Nothing listed. Partial receive / damaged goods is now in scope (T10).

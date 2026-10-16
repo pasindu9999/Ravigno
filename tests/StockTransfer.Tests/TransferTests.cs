@@ -149,6 +149,114 @@ public class TransferTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Receive_Twice_MovesStockOnce()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
+        await SetStock(from, rice, 10);
+        await SetStock(to, rice, 3);
+        var transfer = await Create(from, to, (rice, 4));
+        Assert.Equal(HttpStatusCode.OK, (await Dispatch(transfer.Id)).StatusCode);
+
+        var first = await Receive(transfer.Id);
+        var second = await Receive(transfer.Id);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal("Received", (await second.Content.ReadFromJsonAsync<TransferDto>())!.Status);
+        Assert.Equal(7, await Stock(to, rice)); // 3 + 4, not 3 + 8
+        Assert.Equal(6, await Stock(from, rice));
+        Assert.Equal(TransferStatus.Received, await StatusOf(transfer.Id));
+    }
+
+    [Fact]
+    public async Task Receive_Partial_AddsOnlyReceivedQuantityAndRecordsDiscrepancy()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo);
+        int rice = await ProductId(Rice), sugar = await ProductId(Sugar);
+        await SetStock(from, rice, 10);
+        await SetStock(from, sugar, 20);
+        await SetStock(to, rice, 3);
+        await SetStock(to, sugar, 5);
+        var transfer = await Create(from, to, (rice, 4), (sugar, 7));
+        Assert.Equal(HttpStatusCode.OK, (await Dispatch(transfer.Id)).StatusCode);
+
+        // Only rice is listed; sugar defaults to the full 7.
+        var response = await ReceivePartial(transfer.Id, "1 box crushed", (rice, 3));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var dto = (await response.Content.ReadFromJsonAsync<TransferDto>())!;
+        Assert.Equal(3, dto.Lines.Single(l => l.ProductId == rice).ReceivedQuantity);
+        Assert.Equal(7, dto.Lines.Single(l => l.ProductId == sugar).ReceivedQuantity);
+        Assert.Equal(6, await Stock(to, rice)); // 3 + 3 received, not 3 + 4 sent
+        Assert.Equal(12, await Stock(to, sugar)); // 5 + 7
+        Assert.Equal(6, await Stock(from, rice)); // sender not refunded for the missing unit
+        Assert.Equal(13, await Stock(from, sugar));
+        var discrepancy = Assert.Single(await Discrepancies(transfer.Id)); // none for sugar
+        Assert.Equal((rice, 1, "1 box crushed"), (discrepancy.ProductId, discrepancy.MissingQuantity, discrepancy.Reason));
+        Assert.Equal(3, await ReceivedQty(transfer.Id, rice));
+        Assert.Equal(7, await ReceivedQty(transfer.Id, sugar));
+        Assert.Equal(TransferStatus.Received, await StatusOf(transfer.Id));
+    }
+
+    [Fact]
+    public async Task Receive_MoreThanSent_Returns400AndChangesNothing()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
+        await SetStock(from, rice, 10);
+        await SetStock(to, rice, 3);
+        var transfer = await Create(from, to, (rice, 4));
+        Assert.Equal(HttpStatusCode.OK, (await Dispatch(transfer.Id)).StatusCode);
+
+        var response = await ReceivePartial(transfer.Id, null, (rice, 5));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("between 0 and the sent quantity (4)", await Detail(response));
+        Assert.Equal(TransferStatus.Dispatched, await StatusOf(transfer.Id));
+        Assert.Equal(3, await Stock(to, rice));
+        Assert.Equal(6, await Stock(from, rice));
+        Assert.Null(await ReceivedQty(transfer.Id, rice));
+        Assert.Empty(await Discrepancies(transfer.Id));
+    }
+
+    [Fact]
+    public async Task Receive_PartialTwice_MovesStockOnce()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
+        await SetStock(from, rice, 10);
+        await SetStock(to, rice, 3);
+        var transfer = await Create(from, to, (rice, 4));
+        Assert.Equal(HttpStatusCode.OK, (await Dispatch(transfer.Id)).StatusCode);
+
+        var first = await ReceivePartial(transfer.Id, "damaged", (rice, 3));
+        var second = await ReceivePartial(transfer.Id, "ignored", (rice, 4)); // first receive wins
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(3, (await second.Content.ReadFromJsonAsync<TransferDto>())!.Lines.Single().ReceivedQuantity);
+        Assert.Equal(6, await Stock(to, rice)); // 3 + 3, not 3 + 3 + 4
+        Assert.Equal(3, await ReceivedQty(transfer.Id, rice));
+        var discrepancy = Assert.Single(await Discrepancies(transfer.Id));
+        Assert.Equal((1, "damaged"), (discrepancy.MissingQuantity, discrepancy.Reason));
+    }
+
+    [Fact]
+    public async Task Receive_WithNoBody_AddsFullQuantity()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
+        await SetStock(from, rice, 10);
+        await SetStock(to, rice, 3);
+        var transfer = await Create(from, to, (rice, 4));
+        Assert.Equal(HttpStatusCode.OK, (await Dispatch(transfer.Id)).StatusCode);
+
+        var response = await Receive(transfer.Id); // no body, no Content-Type, like the UI
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(7, await Stock(to, rice));
+        Assert.Equal(4, await ReceivedQty(transfer.Id, rice));
+        Assert.Empty(await Discrepancies(transfer.Id));
+    }
+
+    [Fact]
     public async Task CreateTransfer_WithSameIdempotencyKeyTwice_CreatesOneTransfer()
     {
         int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
@@ -199,6 +307,20 @@ public class TransferTests(ApiFixture api)
             .Select(s => s.Quantity).SingleAsync();
     }
 
+    private async Task<int?> ReceivedQty(int transferId, int productId)
+    {
+        await using var db = api.NewDb();
+        return await db.TransferLines
+            .Where(l => l.TransferId == transferId && l.ProductId == productId)
+            .Select(l => l.ReceivedQuantity).SingleAsync();
+    }
+
+    private async Task<List<ReceiveDiscrepancy>> Discrepancies(int transferId)
+    {
+        await using var db = api.NewDb();
+        return await db.ReceiveDiscrepancies.Where(d => d.TransferId == transferId).OrderBy(d => d.ProductId).ToListAsync();
+    }
+
     private async Task<TransferStatus> StatusOf(int transferId)
     {
         await using var db = api.NewDb();
@@ -229,6 +351,12 @@ public class TransferTests(ApiFixture api)
 
     private Task<HttpResponseMessage> Dispatch(int id) => api.Client.PostAsync($"/transfers/{id}/dispatch", null);
     private Task<HttpResponseMessage> Receive(int id) => api.Client.PostAsync($"/transfers/{id}/receive", null);
+    private Task<HttpResponseMessage> ReceivePartial(int id, string? reason, params (int Product, int Received)[] lines) =>
+        api.Client.PostAsJsonAsync($"/transfers/{id}/receive", new
+        {
+            reason,
+            lines = lines.Select(l => new { productId = l.Product, receivedQuantity = l.Received }),
+        });
     private Task<HttpResponseMessage> Cancel(int id) => api.Client.PostAsync($"/transfers/{id}/cancel", null);
 
     private static async Task<string?> Detail(HttpResponseMessage response) =>

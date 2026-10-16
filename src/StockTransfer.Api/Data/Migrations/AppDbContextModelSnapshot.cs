@@ -64,6 +64,41 @@ namespace StockTransfer.Api.Data.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("StockTransfer.Api.Models.ReceiveDiscrepancy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MissingQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("TransferId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransferId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("ReceiveDiscrepancies", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReceiveDiscrepancies_MissingQuantity_Positive", "[MissingQuantity] > 0");
+                        });
+                });
+
             modelBuilder.Entity("StockTransfer.Api.Models.StockLevel", b =>
                 {
                     b.Property<int>("LocationId")
@@ -144,6 +179,9 @@ namespace StockTransfer.Api.Data.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ReceivedQuantity")
+                        .HasColumnType("int");
+
                     b.HasKey("TransferId", "ProductId");
 
                     b.HasIndex("ProductId");
@@ -151,7 +189,20 @@ namespace StockTransfer.Api.Data.Migrations
                     b.ToTable("TransferLines", t =>
                         {
                             t.HasCheckConstraint("CK_TransferLines_Quantity_Range", "[Quantity] > 0 AND [Quantity] <= 1000000");
+
+                            t.HasCheckConstraint("CK_TransferLines_ReceivedQuantity_Range", "[ReceivedQuantity] IS NULL OR ([ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity])");
                         });
+                });
+
+            modelBuilder.Entity("StockTransfer.Api.Models.ReceiveDiscrepancy", b =>
+                {
+                    b.HasOne("StockTransfer.Api.Models.TransferLine", "TransferLine")
+                        .WithMany()
+                        .HasForeignKey("TransferId", "ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransferLine");
                 });
 
             modelBuilder.Entity("StockTransfer.Api.Models.StockLevel", b =>

@@ -1,6 +1,6 @@
 # Branch Stock Transfer
 
-A small system for moving stock between a central warehouse and three branches (Colombo, Kandy, Galle). A branch requests a transfer of products, the sender dispatches it (stock leaves the sender), and the receiver receives it (stock arrives). Goods in transit are in neither location, so total stock plus in-transit stays constant. Stack: ASP.NET Core Web API (.NET 8) with EF Core on SQL Server 2022 (Docker), and a one-screen React + TypeScript client (Vite). Tests run xUnit against a real SQL Server database.
+A small system for moving stock between a central warehouse and three branches (Colombo, Kandy, Galle). A branch requests a transfer of products, the sender dispatches it (stock leaves the sender), and the receiver receives it (stock arrives). Goods in transit are in neither location, so total stock plus in-transit stays constant, except goods written off at a partial receive (see Assumptions). Stack: ASP.NET Core Web API (.NET 8) with EF Core on SQL Server 2022 (Docker), and a one-screen React + TypeScript client (Vite). Tests run xUnit against a real SQL Server database.
 
 ## Prerequisites
 
@@ -54,15 +54,15 @@ EXEC sp_executesql @sql;
 
 ## API
 
-| Method | Path                           | What it does                                                                             | Status codes                                                                            |
-| ------ | ------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/branches`                    | List locations (id, name)                                                                | 200                                                                                     |
-| GET    | `/branches/{id}/stock`         | Stock of every product at one location                                                   | 200, 404                                                                                |
-| POST   | `/transfers`                   | Create a transfer (status Requested, no stock effect). Optional `Idempotency-Key` header | 201 created, 200 replay of an existing key, 400                                         |
-| GET    | `/transfers?branchId=&status=` | List transfers, newest first. `branchId` matches From or To                              | 200, 400                                                                                |
-| POST   | `/transfers/{id}/dispatch`     | Requested to Dispatched; sender stock decreases                                          | 200 (also if already Dispatched), 404, 409                                              |
-| POST   | `/transfers/{id}/receive`      | Dispatched to Received; receiver stock increases                                         | 200 (also if already Received), 404, 409, 500 (receiver stock row missing, rolled back) |
-| POST   | `/transfers/{id}/cancel`       | Requested to Cancelled; no stock effect                                                  | 200 (also if already Cancelled), 404, 409                                               |
+| Method | Path                           | What it does                                                                                                                                                                    | Status codes                                                                                 |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| GET    | `/branches`                    | List locations (id, name)                                                                                                                                                       | 200                                                                                          |
+| GET    | `/branches/{id}/stock`         | Stock of every product at one location                                                                                                                                          | 200, 404                                                                                     |
+| POST   | `/transfers`                   | Create a transfer (status Requested, no stock effect). Optional `Idempotency-Key` header                                                                                        | 201 created, 200 replay of an existing key, 400                                              |
+| GET    | `/transfers?branchId=&status=` | List transfers, newest first. `branchId` matches From or To                                                                                                                     | 200, 400                                                                                     |
+| POST   | `/transfers/{id}/dispatch`     | Requested to Dispatched; sender stock decreases                                                                                                                                 | 200 (also if already Dispatched), 404, 409                                                   |
+| POST   | `/transfers/{id}/receive`      | Dispatched to Received; receiver stock increases. Optional body `{ "reason": "...", "lines": [{ "productId": 1, "receivedQuantity": 3 }] }` records a smaller received quantity | 200 (also if already Received), 400, 404, 409, 500 (receiver stock row missing, rolled back) |
+| POST   | `/transfers/{id}/cancel`       | Requested to Cancelled; no stock effect                                                                                                                                         | 200 (also if already Cancelled), 404, 409                                                    |
 
 Errors are ProblemDetails with a readable message in `detail`. 409 means insufficient stock (`Insufficient stock for <product>`) or a wrong status.
 
@@ -72,6 +72,7 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - **Guarded UPDATE for status:** each action starts with `UPDATE Transfers SET Status = ... WHERE Id = @id AND Status = <expected>` (via `ExecuteUpdateAsync`). A concurrent second caller blocks on the row lock, then matches 0 rows. On 0 rows the transfer is reloaded: already in the target state = 200 with the current state, missing = 404, anything else = 409.
 - **Conditional UPDATE for stock:** dispatch runs `Quantity = Quantity - @n WHERE LocationId = @from AND ProductId = @p AND Quantity >= @n`. 0 rows rolls back the whole transaction (including the status change) and returns 409. Receive adds at the To location; the seed created a stock row for every location x product, so it is a plain UPDATE. Stock is never read and then written from C#.
 - **One transaction per action:** dispatch and receive wrap the status flip and all line updates in one transaction. Cancel is a single UPDATE and needs none.
+- **Partial receive:** the receive body is optional and validated before the transaction opens (lines never change after create, so a 400 takes no lock). Inside the one transaction, after the same guard, each line gets `ReceivedQuantity` set, the receiver's stock is incremented by that quantity only, and a `ReceiveDiscrepancies` row is inserted when received < sent. `CK_TransferLines_ReceivedQuantity_Range` (0 to sent) and a unique `(TransferId, ProductId)` index on the discrepancy table are the backstops.
 - **Ascending ProductId order:** lines are applied in ProductId order so two transfers that share a location lock stock rows in the same order and cannot deadlock.
 - **DB CHECK as backstop:** `CK_StockLevels_Quantity_NonNegative` (`Quantity >= 0`) stops any other write path going negative. `CK_TransferLines_Quantity_Range` (1 to 1,000,000) does the same for lines.
 - **Idempotency, two layers:** (1) `POST /transfers` looks up the `Idempotency-Key` first and returns the existing transfer. (2) A filtered unique index (`IX_Transfers_IdempotencyKey`, `WHERE [IdempotencyKey] IS NOT NULL`) catches two requests that both passed the lookup; the loser catches the unique violation and returns the winner's row. Removing either layer alone still passes the test, by design.
@@ -80,6 +81,15 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 
 - The same `Idempotency-Key` with a different body returns the original transfer unchanged (the lookup happens before the body is validated).
 - Repeating dispatch, receive or cancel returns 200 with the current state and moves nothing. Any other invalid transition is 409, including dispatch after Received.
+- Receive with no body (or a whitespace-only body) receives the full quantity of every line. Lines not listed in a body also default to their full quantity.
+- Receiving 0 on every line still marks the transfer Received: the receiver gets nothing and every line is written off.
+- Written-off goods are not refunded to the sender: the stock left at dispatch. The difference is recorded in `ReceiveDiscrepancies`, so total stock plus in-transit is no longer constant after a partial receive.
+- One `reason` per receive; it is copied onto every discrepancy row that receive creates. At most 500 characters, blank means none.
+- Lines are identified by `productId` (unique per transfer), not a separate line id.
+- The first receive wins: a second receive with different quantities returns 200 with the first result and changes nothing.
+- A receive body with an invalid line is 400 even if the transfer is not Dispatched.
+- In the UI, Receive opens a per-line form (default = sent quantity). Confirming without changing any quantity sends no body, the same request as before. A reason typed without changing a quantity is dropped.
+- `ReceivedQuantity` is NULL until the transfer is received. The migration sets it to the sent quantity for transfers that were already Received.
 - Requesting does not reserve stock. The stock figure in the UI is advisory; the check at dispatch is authoritative.
 - The warehouse is a location like any other and can be a destination.
 - Quantity is a whole number from 1 to 1,000,000. A duplicate product in one request is 400.
@@ -97,20 +107,22 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - Dispatch, receive and cancel repeat similar code on purpose. Each is short and can be read on its own; a shared helper is on the "another day" list.
 - No paging on `GET /transfers`; it returns every match.
 - The concurrent-dispatch test releases two requests together and repeats 10 rounds. That makes a race likely to show up but cannot prove there is none; the guarantee comes from the single guarded UPDATE.
-- Seven tests only, matching the brief. Not covered: cancel happy path, repeated receive or cancel, validation cases, list filters, a stock-conservation check, the client.
+- Twelve tests: the brief's cases, a repeated receive, and four for partial receive (partial, over-receive 400, repeated partial, no body). Not covered: cancel happy path, repeated cancel, create validation cases, list filters, a stock-conservation check (which partial receive now complicates), receive with a whitespace-only body, other receive 400 cases (unknown or duplicate product, negative quantity, bad JSON), the client.
 - The `sa` password in `docker-compose.yml` and `appsettings.json` is for a throwaway local container only. SQL Server is bound to 127.0.0.1 so it is not reachable from other machines. The connection string uses 127.0.0.1 because `localhost` can resolve to `::1`, which the container does not serve. Override it with the `ConnectionStrings__Default` environment variable.
 
 ## With another day
 
-- Partial receive: `ReceivedQuantity` on the transfer line plus a difference record for damaged or missing goods.
+- Exposing discrepancies and their reasons through the API.
 - A shared `TransitionAsync` for dispatch, receive and cancel.
 - Paging on the transfer list.
 - Authentication and roles (and scoping idempotency keys to a user).
-- More tests: cancel happy path, repeated actions, validation, list filters, stock conservation, client tests.
+- More tests: cancel happy path, repeated cancel, validation, list filters, stock conservation (including written-off goods), client tests.
 - A CHECK constraint on `FromLocationId <> ToLocationId`.
 - A cap on the number of lines per request.
 - Run migrations as a separate step instead of inside the app.
 
 ## Time spent
 
-<fill in: 2 hours 35 minutes>
+165 minutes (2 hours 45 minutes) on the mandatory tasks(T1-T9). All other time
+went on the optional work (T10a, T10b), which is not included
+in that figure.

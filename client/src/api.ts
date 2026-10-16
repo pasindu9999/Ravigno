@@ -2,7 +2,7 @@ export type Branch = { id: number; name: string }
 export type StockItem = { productId: number; productName: string; quantity: number }
 export type BranchStock = { branchId: number; branchName: string; items: StockItem[] }
 export type LocationRef = { id: number; name: string }
-export type TransferLine = { productId: number; productName: string; quantity: number }
+export type TransferLine = { productId: number; productName: string; quantity: number; receivedQuantity: number | null }
 export type Transfer = {
   id: number
   from: LocationRef
@@ -81,6 +81,17 @@ export async function createTransfer(body: CreateBody, key: string): Promise<{ s
   return { status: res.status, transfer: await res.json() }
 }
 
-export async function act(id: number, action: 'dispatch' | 'receive' | 'cancel'): Promise<Transfer> {
-  return (await call(`/api/transfers/${id}/${action}`, { method: 'POST' })).json()
+export type ReceiveBody = {
+  reason?: string
+  lines: { productId: number; receivedQuantity: number }[]
+}
+
+// `body` is only for a partial receive; without it the request has no body, so everything is received.
+export async function act(id: number, action: 'dispatch' | 'receive' | 'cancel', body?: ReceiveBody): Promise<Transfer> {
+  const init: RequestInit = { method: 'POST' }
+  if (body) {
+    init.headers = { 'Content-Type': 'application/json' }
+    init.body = JSON.stringify(body)
+  }
+  return (await call(`/api/transfers/${id}/${action}`, init)).json()
 }

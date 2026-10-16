@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { act, getTransfers, type Branch, type Transfer } from './api'
+import { act, getTransfers, type Branch, type ReceiveBody, type Transfer } from './api'
 
 type Props = { branches: Branch[]; refreshKey: number; onChanged: () => void }
+// Open receive form for one transfer: received quantity per productId (as typed) and an optional reason.
+type ReceiveForm = { qty: Record<number, string>; reason: string }
 
 const STATUSES = ['Requested', 'Dispatched', 'Received', 'Cancelled']
 
@@ -12,6 +14,7 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
   const [listError, setListError] = useState('')
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({})
   const [busyIds, setBusyIds] = useState<number[]>([])
+  const [forms, setForms] = useState<Record<number, ReceiveForm | undefined>>({})
   // Ids with a request in flight, updated synchronously; busyIds only drives the disabled buttons after a re-render.
   const busy = useRef(new Set<number>())
 
@@ -33,13 +36,14 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
     }
   }, [status, branchId, refreshKey])
 
-  const run = async (id: number, action: 'dispatch' | 'receive' | 'cancel') => {
+  const run = async (id: number, action: 'dispatch' | 'receive' | 'cancel', body?: ReceiveBody) => {
     if (busy.current.has(id)) return
     busy.current.add(id)
     setBusyIds([...busy.current])
     setRowErrors((r) => ({ ...r, [id]: '' }))
     try {
-      await act(id, action)
+      await act(id, action, body)
+      setForms((f) => ({ ...f, [id]: undefined })) // on failure the form stays open so the user can fix it
     } catch (err) {
       setRowErrors((r) => ({ ...r, [id]: err instanceof Error ? err.message : 'Unexpected error' }))
     } finally {
@@ -47,6 +51,29 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
       setBusyIds([...busy.current])
       onChanged() // also after a failure: the transfer's real state may differ from what the row showed
     }
+  }
+
+  const openForm = (t: Transfer) =>
+    setForms((f) => ({
+      ...f,
+      [t.id]: { qty: Object.fromEntries(t.lines.map((l) => [l.productId, String(l.quantity)])), reason: '' },
+    }))
+
+  const confirmReceive = (t: Transfer) => {
+    const form = forms[t.id]
+    if (!form) return
+    const lines: { productId: number; receivedQuantity: number }[] = []
+    for (const l of t.lines) {
+      const raw = form.qty[l.productId] ?? ''
+      const n = Number(raw)
+      if (raw.trim() === '' || !Number.isInteger(n) || n < 0 || n > l.quantity) {
+        setRowErrors((r) => ({ ...r, [t.id]: `${l.productName}: enter a whole number from 0 to ${l.quantity}` }))
+        return
+      }
+      if (n !== l.quantity) lines.push({ productId: l.productId, receivedQuantity: n })
+    }
+    // Nothing changed = no body, exactly the old "receive everything" request.
+    run(t.id, 'receive', lines.length > 0 ? { lines, reason: form.reason.trim() || undefined } : undefined)
   }
 
   return (
@@ -93,7 +120,11 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
                 <td>
                   <ul>
                     {t.lines.map((l, i) => (
-                      <li key={i}>{`${l.productName} x ${l.quantity}`}</li>
+                      <li key={i}>
+                        {t.status === 'Received'
+                          ? `${l.productName}: ${l.receivedQuantity ?? l.quantity} received of ${l.quantity}`
+                          : `${l.productName} x ${l.quantity}`}
+                      </li>
                     ))}
                   </ul>
                 </td>
@@ -105,10 +136,47 @@ export default function TransfersList({ branches, refreshKey, onChanged }: Props
                         <button disabled={disabled} onClick={() => run(t.id, 'cancel')}>Cancel</button>
                       </>
                     )}
-                    {t.status === 'Dispatched' && (
-                      <button disabled={disabled} onClick={() => run(t.id, 'receive')}>Receive</button>
+                    {t.status === 'Dispatched' && !forms[t.id] && (
+                      <button disabled={disabled} onClick={() => openForm(t)}>Receive</button>
                     )}
                   </div>
+                  {t.status === 'Dispatched' && forms[t.id] && (
+                    <div className="receive-form">
+                      {t.lines.map((l) => (
+                        <label key={l.productId}>
+                          {l.productName} received (of {l.quantity})
+                          <input
+                            type="number"
+                            min={0}
+                            max={l.quantity}
+                            step={1}
+                            disabled={disabled}
+                            value={forms[t.id]!.qty[l.productId] ?? ''}
+                            onChange={(e) =>
+                              setForms((f) => ({
+                                ...f,
+                                [t.id]: { ...f[t.id]!, qty: { ...f[t.id]!.qty, [l.productId]: e.target.value } },
+                              }))
+                            }
+                          />
+                        </label>
+                      ))}
+                      <label>
+                        Reason (optional)
+                        <input
+                          type="text"
+                          maxLength={500}
+                          disabled={disabled}
+                          value={forms[t.id]!.reason}
+                          onChange={(e) => setForms((f) => ({ ...f, [t.id]: { ...f[t.id]!, reason: e.target.value } }))}
+                        />
+                      </label>
+                      <div className="buttons">
+                        <button className="primary" disabled={disabled} onClick={() => confirmReceive(t)}>Confirm receive</button>{' '}
+                        <button disabled={disabled} onClick={() => setForms((f) => ({ ...f, [t.id]: undefined }))}>Back</button>
+                      </div>
+                    </div>
+                  )}
                   {rowErrors[t.id] && <div className="error" role="alert">Error: {rowErrors[t.id]}</div>}
                 </td>
               </tr>
