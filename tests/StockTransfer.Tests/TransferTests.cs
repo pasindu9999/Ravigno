@@ -91,6 +91,37 @@ public class TransferTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Dispatch_TwoTransfersForLastUnits_OneWinsOtherGets409()
+    {
+        int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
+
+        for (var round = 1; round <= 10; round++)
+        {
+            await SetStock(from, rice, 10);
+            await SetStock(to, rice, 3);
+            var ids = new[] { (await Create(from, to, (rice, 6))).Id, (await Create(from, to, (rice, 6))).Id };
+
+            // 6 + 6 > 10, so whatever the interleaving, exactly one dispatch can win.
+            var responses = await DispatchAtOnce(ids);
+
+            var codes = string.Join(", ", responses.Select(r => (int)r.StatusCode));
+            Assert.True(
+                responses.Count(r => r.StatusCode == HttpStatusCode.OK) == 1
+                && responses.Count(r => r.StatusCode == HttpStatusCode.Conflict) == 1,
+                $"round {round}: expected one 200 and one 409, got {codes}");
+            var won = ids[Array.FindIndex(responses, r => r.StatusCode == HttpStatusCode.OK)];
+            var lost = ids[Array.FindIndex(responses, r => r.StatusCode == HttpStatusCode.Conflict)];
+
+            Assert.Equal($"Insufficient stock for {Rice}", await Detail(responses[Array.IndexOf(ids, lost)]));
+            var stock = await Stock(from, rice);
+            Assert.True(stock == 4, $"round {round}: sender stock is {stock}, expected 4");
+            Assert.Equal(3, await Stock(to, rice)); // nothing arrives until receive
+            Assert.Equal(TransferStatus.Dispatched, await StatusOf(won));
+            Assert.Equal(TransferStatus.Requested, await StatusOf(lost)); // the loser's status flip was rolled back
+        }
+    }
+
+    [Fact]
     public async Task Receive_BeforeDispatch_Returns409AndChangesNothing()
     {
         int from = await LocationId(Warehouse), to = await LocationId(Colombo), rice = await ProductId(Rice);
@@ -276,6 +307,27 @@ public class TransferTests(ApiFixture api)
         Assert.Equal(before + 1, await db.Transfers.CountAsync());
     }
 
+    [Theory]
+    [InlineData(true, 1)] // from == to
+    [InlineData(false, 0)]
+    [InlineData(false, -1)]
+    public async Task CreateTransfer_WithSameBranchOrNonPositiveQuantity_Returns400AndCreatesNothing(bool sameBranch, int quantity)
+    {
+        int from = await LocationId(Warehouse), rice = await ProductId(Rice);
+        int to = sameBranch ? from : await LocationId(Colombo);
+        await using var db = api.NewDb();
+        var before = await db.Transfers.CountAsync();
+
+        var response = await PostTransfer(from, to, [(rice, quantity)]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(
+            sameBranch ? "From and to locations must be different" : "Quantity must be a whole number between 1 and 1,000,000",
+            await Detail(response));
+        Assert.Equal(before, await db.Transfers.CountAsync());
+    }
+
     // --- helpers ---
 
     private async Task<int> LocationId(string name)
@@ -350,6 +402,24 @@ public class TransferTests(ApiFixture api)
     }
 
     private Task<HttpResponseMessage> Dispatch(int id) => api.Client.PostAsync($"/transfers/{id}/dispatch", null);
+
+    // Responses come back in the same order as the ids.
+    private async Task<HttpResponseMessage[]> DispatchAtOnce(params int[] ids)
+    {
+        // Every request waits at the gate and is released together, so they overlap in the database.
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ready = new CountdownEvent(ids.Length);
+        var calls = ids.Select(id => Task.Run(async () =>
+        {
+            ready.Signal();
+            await gate.Task;
+            return await Dispatch(id);
+        })).ToArray();
+        await Task.Run(ready.Wait);
+        gate.SetResult();
+        return await Task.WhenAll(calls);
+    }
+
     private Task<HttpResponseMessage> Receive(int id) => api.Client.PostAsync($"/transfers/{id}/receive", null);
     private Task<HttpResponseMessage> ReceivePartial(int id, string? reason, params (int Product, int Received)[] lines) =>
         api.Client.PostAsJsonAsync($"/transfers/{id}/receive", new

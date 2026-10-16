@@ -107,7 +107,14 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - Dispatch, receive and cancel repeat similar code on purpose. Each is short and can be read on its own; a shared helper is on the "another day" list.
 - No paging on `GET /transfers`; it returns every match.
 - The concurrent-dispatch test releases two requests together and repeats 10 rounds. That makes a race likely to show up but cannot prove there is none; the guarantee comes from the single guarded UPDATE.
-- Twelve tests: the brief's cases, a repeated receive, and four for partial receive (partial, over-receive 400, repeated partial, no body). Not covered: cancel happy path, repeated cancel, create validation cases, list filters, a stock-conservation check (which partial receive now complicates), receive with a whitespace-only body, other receive 400 cases (unknown or duplicate product, negative quantity, bad JSON), the client.
+- Test coverage. Covered: the brief's cases, a repeated receive, partial receive (partial, over-receive 400, repeated partial, no body), two different transfers racing for the last units of one product (10 rounds, one 200 and one 409, stock and statuses checked), and create rejections for From == To and quantity 0 or -1 (400, no row created). Not covered:
+  - Two concurrent creates with the same `Idempotency-Key` (the unique-violation path). Parallel requests cannot force which code path runs: the replay lookup usually wins, and the catch only runs if both requests pass the lookup before either inserts. Only the sequential same-key test exists.
+  - Cancel happy path and repeated cancel.
+  - Other create validation: no lines, duplicate product, unknown location or product, quantity above 1,000,000 or not an integer, over-long key.
+  - List filters.
+  - Stock conservation (partial receive complicates it).
+  - Receive with a whitespace-only body, and other receive 400 cases (unknown or duplicate product, negative quantity, bad JSON).
+  - The client.
 - The `sa` password in `docker-compose.yml` and `appsettings.json` is for a throwaway local container only. SQL Server is bound to 127.0.0.1 so it is not reachable from other machines. The connection string uses 127.0.0.1 because `localhost` can resolve to `::1`, which the container does not serve. Override it with the `ConnectionStrings__Default` environment variable.
 
 ## With another day
@@ -116,7 +123,7 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - A shared `TransitionAsync` for dispatch, receive and cancel.
 - Paging on the transfer list.
 - Authentication and roles (and scoping idempotency keys to a user).
-- More tests: cancel happy path, repeated cancel, validation, list filters, stock conservation (including written-off goods), client tests.
+- More tests: the untested gaps listed under Trade-offs (a deterministic test for the duplicate-key race would need a hook to pause between the lookup and the insert), plus stock conservation (including written-off goods) and client tests.
 - A CHECK constraint on `FromLocationId <> ToLocationId`.
 - A cap on the number of lines per request.
 - Run migrations as a separate step instead of inside the app.
