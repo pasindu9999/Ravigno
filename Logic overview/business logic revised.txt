@@ -31,7 +31,8 @@ CONSTRAINTS (not allowed)
 - Receive before dispatch
 - Cancel after dispatch
 - Dispatch after cancel
-- [Added by Claude] Cancelling a transfer twice, or receiving/cancelling from any other wrong status. All of these get the same 409 response.
+- [Added by Claude] Receiving or cancelling from any other wrong status. All of these get the same 409 response.
+  Repeating an action that already happened (dispatch, receive or cancel twice) is not one of these: it returns 200 (see Edge cases 1).
 
 
 REQUIREMENTS GIVEN
@@ -39,14 +40,17 @@ REQUIREMENTS GIVEN
 1. Stock at either location is always 0 or more.
 2. The same transfer only moves stock once per step.
 3. Total stock + in-transit stock is constant. Between dispatch and receive, the goods are in neither location.
+   - [Added later, T10 partial receive] Exception: goods written off at a partial receive (sent minus received) are recorded in ReceiveDiscrepancies and not returned to the sender.
 
 
 EDGE CASES
 
 1. Double-click or retried dispatch/receive: the subsequent calls must not move stock again. I must decide whether to return 409, or 200 with the current state.
-   - [Added by Claude - suggested decision, confirm you agree] An exact repeat of the same action on the same transfer (dispatch twice, receive twice) returns 200 with the current state, so a client retrying after a timeout sees success. An invalid transition (for example, receive before dispatch) returns 409.
+   - [Added by Claude - suggested decision, confirm you agree] An exact repeat of the same action on the same transfer (dispatch twice, receive twice, cancel twice) returns 200 with the current state, so a client retrying after a timeout sees success. An invalid transition (for example, receive before dispatch) returns 409.
+   - Decided: as suggested above.
 2. Double-click or retried POST can create duplicate transfers. This must be handled using an Idempotency key.
    - [Added by Claude - decision needed] Where to store the key: either a unique column on the transfer, or a separate table with a unique constraint on the key. Pick one and be ready to explain why.
+   - Decided: a nullable IdempotencyKey column on Transfers with a filtered unique index (WHERE IdempotencyKey IS NOT NULL).
 
 
 CONCURRENCY
@@ -64,6 +68,7 @@ VALIDATION
 3. [Added by Claude] From and to location must be different.
 4. [Added by Claude] A transfer must have at least one line.
 5. [Added by Claude] The same product appearing twice in one request. Suggested default: reject with 400 (alternative: merge the lines). Decide and note it in the README.
+   - Decided: reject with 400 (noted in the README).
 
 
 STOCK

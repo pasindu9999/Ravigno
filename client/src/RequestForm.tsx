@@ -42,6 +42,16 @@ export default function RequestForm({ branches, refreshKey, onChanged }: Props) 
     }
   }, [fromId, refreshKey])
 
+  const changeFrom = (id: string) => {
+    setFromId(id)
+    // Drop the old branch's stock at once; the effect only replaces it when the new response arrives.
+    setStock(null)
+    setStockError('')
+    if (!id) {
+      setLines([])
+      setError('')
+    }
+  }
   const addLine = () => {
     if (stock && stock.items.length > 0)
       setLines([...lines, { productId: String(stock.items[0].productId), quantity: '' }])
@@ -96,7 +106,7 @@ export default function RequestForm({ branches, refreshKey, onChanged }: Props) 
       <div className="row">
         <label>
           From{' '}
-          <select value={fromId} onChange={(e) => setFromId(e.target.value)}>
+          <select value={fromId} onChange={(e) => changeFrom(e.target.value)}>
             <option value="">-- choose --</option>
             {branches.filter((b) => String(b.id) !== toId).map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
@@ -144,8 +154,8 @@ export default function RequestForm({ branches, refreshKey, onChanged }: Props) 
         </div>
       ))}
       <div className="buttons">
-        <button type="button" onClick={addLine} disabled={!stock}>Add line</button>{' '}
-        <button type="submit" className="primary" disabled={submitting}>Submit</button>
+        <button type="button" onClick={addLine} disabled={!fromId || !stock}>Add line</button>{' '}
+        <button type="submit" className="primary" disabled={submitting || !fromId || !toId}>Submit</button>
       </div>
       </fieldset>
 
