@@ -54,15 +54,15 @@ EXEC sp_executesql @sql;
 
 ## API
 
-| Method | Path                           | What it does                                                                             | Status codes                                                                            |
-| ------ | ------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/branches`                    | List locations (id, name)                                                                | 200                                                                                     |
-| GET    | `/branches/{id}/stock`         | Stock of every product at one location                                                   | 200, 404                                                                                |
-| POST   | `/transfers`                   | Create a transfer (status Requested, no stock effect). Optional `Idempotency-Key` header | 201 created, 200 replay of an existing key, 400                                         |
-| GET    | `/transfers?branchId=&status=` | List transfers, newest first. `branchId` matches From or To                              | 200, 400                                                                                |
-| POST   | `/transfers/{id}/dispatch`     | Requested to Dispatched; sender stock decreases                                          | 200 (also if already Dispatched), 404, 409                                              |
+| Method | Path                           | What it does                                                                                                                                                                    | Status codes                                                                                 |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| GET    | `/branches`                    | List locations (id, name)                                                                                                                                                       | 200                                                                                          |
+| GET    | `/branches/{id}/stock`         | Stock of every product at one location                                                                                                                                          | 200, 404                                                                                     |
+| POST   | `/transfers`                   | Create a transfer (status Requested, no stock effect). Optional `Idempotency-Key` header                                                                                        | 201 created, 200 replay of an existing key, 400                                              |
+| GET    | `/transfers?branchId=&status=` | List transfers, newest first. `branchId` matches From or To                                                                                                                     | 200, 400                                                                                     |
+| POST   | `/transfers/{id}/dispatch`     | Requested to Dispatched; sender stock decreases                                                                                                                                 | 200 (also if already Dispatched), 404, 409                                                   |
 | POST   | `/transfers/{id}/receive`      | Dispatched to Received; receiver stock increases. Optional body `{ "reason": "...", "lines": [{ "productId": 1, "receivedQuantity": 3 }] }` records a smaller received quantity | 200 (also if already Received), 400, 404, 409, 500 (receiver stock row missing, rolled back) |
-| POST   | `/transfers/{id}/cancel`       | Requested to Cancelled; no stock effect                                                  | 200 (also if already Cancelled), 404, 409                                               |
+| POST   | `/transfers/{id}/cancel`       | Requested to Cancelled; no stock effect                                                                                                                                         | 200 (also if already Cancelled), 404, 409                                                    |
 
 Errors are ProblemDetails with a readable message in `detail`. 409 means insufficient stock (`Insufficient stock for <product>`) or a wrong status.
 
@@ -88,6 +88,7 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 - Lines are identified by `productId` (unique per transfer), not a separate line id.
 - The first receive wins: a second receive with different quantities returns 200 with the first result and changes nothing.
 - A receive body with an invalid line is 400 even if the transfer is not Dispatched.
+- In the UI, Receive opens a per-line form (default = sent quantity). Confirming without changing any quantity sends no body, the same request as before. A reason typed without changing a quantity is dropped.
 - `ReceivedQuantity` is NULL until the transfer is received. The migration sets it to the sent quantity for transfers that were already Received.
 - Requesting does not reserve stock. The stock figure in the UI is advisory; the check at dispatch is authoritative.
 - The warehouse is a location like any other and can be a destination.
@@ -111,7 +112,6 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 
 ## With another day
 
-- Partial receive in the UI (the API supports it; the screen still receives everything).
 - Exposing discrepancies and their reasons through the API.
 - A shared `TransitionAsync` for dispatch, receive and cancel.
 - Paging on the transfer list.
@@ -123,4 +123,6 @@ Errors are ProblemDetails with a readable message in `detail`. 409 means insuffi
 
 ## Time spent
 
-<fill in: 2 hours 45 minutes>
+165 minutes (2 hours 45 minutes) on the mandatory tasks(T1-T9). All other time
+went on the optional work (T10a, T10b), which is not included
+in that figure.

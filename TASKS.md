@@ -108,22 +108,38 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## Time log
 
-| Task | Est | Actual |
-| ---- | --- | ------ |
-| T0   | 10  | 5      |
-| T1   | 10  | 15     |
-| T2   | 15  | 15     |
-| T3   | 5   | 5      |
-| T4   | 20  | 15     |
-| T5   | 20  | 25     |
-| T6   | 15  | 20     |
-| T7   | 25  | 30     |
-| T8   | 30  | 25     |
-| T9   | 10  | 10     |
-| T10a backend | 35 |    |
-| T10b React   | 15 |    |
+| Task         | Est | Actual |
+| ------------ | --- | ------ |
+| T0           | 10  | 5      |
+| T1           | 10  | 15     |
+| T2           | 15  | 15     |
+| T3           | 5   | 5      |
+| T4           | 20  | 15     |
+| T5           | 20  | 25     |
+| T6           | 15  | 20     |
+| T7           | 25  | 30     |
+| T8           | 30  | 25     |
+| T9           | 10  | 10     |
+| T10a backend | 35  | 20     |
+| T10b React   | 15  | 10     |
 
 ## AI mistakes log (feeds AI_USAGE.md)
 
-| Task | What the AI did wrong | How I noticed | What I changed |
-| ---- | --------------------- | ------------- | -------------- |
+| Task | What the AI did wrong                                                                                        | How I noticed                                                                                                      | What I changed                                                                                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T1   | The plan chose LocalDB because my prompt left the database blank (it assumed instead of asking)              | I read the plan before any code was written                                                                        | Rejected it and required SQL Server 2022 in Docker: LocalDB is Windows-only, Docker gives every reviewer the same setup, and tests can create and drop a uniquely named DB on the same container |
+| T2   | The schema had no CHECK on TransferLines.Quantity, so a negative quantity could bypass the dispatch guard    | A review pass of the schema flagged it                                                                             | Added a DB CHECK (Quantity > 0) on TransferLines                                                                                                                                                 |
+| T7   | The review pass claimed the idempotency test goes red if I drop the unique index or remove the replay lookup | The T7 plan had already reasoned that the two layers cover each other, so removing one alone leaves the test green | Used the plan's break instead (set IdempotencyKey to null on insert = red; remove only the replay lookup = green by design) and ran both by hand                                                 |
+
+## Decisions I made myself
+
+| Task | Decision                                                                                        | Why                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| T0   | Plan first, one task per session, AI never commits (written into CLAUDE.md)                     | I read every diff and own the history                                                   |
+| T1   | Bound SQL Server to localhost; throwaway password stays in compose                              | `docker compose up` must work with no setup, but the port is not exposed to the network |
+| T5   | Wrote the dispatch transaction myself; AI only explained and reviewed it                        | Core business rule, and I must explain every line on the call                           |
+| T7   | Approved one new package (Microsoft.AspNetCore.Mvc.Testing) despite the "no new packages" rule  | Needed for integration tests; approved explicitly in the T7 prompt                      |
+| T7   | Kept exactly 7 tests and listed gaps in the README                                              | Time box; honest coverage notes beat extra rushed tests                                 |
+| T8   | Added a read-only GET /branches                                                                 | The form needs branch names and no endpoint existed                                     |
+| T8   | Vite dev proxy instead of CORS                                                                  | API stays unchanged                                                                     |
+| T8   | Reviewed the idempotency key lifecycle: kept on network error or 5xx, dropped on success or 4xx | A retry can't create a duplicate                                                        |
