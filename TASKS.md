@@ -86,10 +86,10 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 
 ## T9 Docs (10 min)
 
-- [ ] README: run steps, assumptions, trade-offs, "with another day"
-- [ ] AI_USAGE.md: tools and models used, one real AI mistake (from the log
+- [x] README: run steps, assumptions, trade-offs, "with another day"
+- [x] AI_USAGE.md: tools and models used, one real AI mistake (from the log
       below), what you wrote or decided yourself
-- [ ] Time spent
+- [x] Time spent
 
 ## T10 Optional rehearsal (10 min)
 
@@ -111,7 +111,7 @@ Budget: about 160 min of work (limit is 3 h). Reading AI output counts as time s
 | T6   | 15  | 20     |
 | T7   | 25  | 30     |
 | T8   | 30  | 25     |
-| T9   | 10  |        |
+| T9   | 10  | 10      |
 
 ## AI mistakes log (feeds AI_USAGE.md)
 

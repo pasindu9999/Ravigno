@@ -17,11 +17,26 @@
 - **Plan first, one task per session, no git by AI**
   - Written into CLAUDE.md so Claude plans, stops after each task, and never commits
 
+    **Bound SQL Server to localhost and kept the throwaway password in compose**
+
+  - A reviewer's `docker compose up` must work with no extra setup, so the password stays in the repo, but the port is not exposed to the network
+
+- **Accepted one new test package (Microsoft.AspNetCore.Mvc.Testing)**
+  - CLAUDE.md says no new packages, so I approved this one explicitly in the T7 prompt
+- **Kept exactly 7 tests; listed coverage gaps in the README instead**
+  - Gaps: cancel happy path, repeated receive or cancel, validation cases, list filters, a stock-conservation check
+
 ## Where the AI was wrong or unhelpful
 
-- <Task>: <what the AI did wrong>
-  - How I noticed: <...> -- Fill for indivudal tasks if something went wrong
-  - What I changed: <...>
+**T7 review pass: wrong claim about the idempotency test**
+
+- The review said the idempotency test goes red if I drop the unique index or remove the replay lookup
+- How I noticed: the T7 plan had already reasoned that the two layers cover each other, so removing either one alone leaves the test green
+- What I changed: used the plan's breaks instead (set IdempotencyKey to null on insert = red; remove only the replay lookup = green by design) and ran them by hand
+
+Added a read-only GET /branches, since the form needs branch names and there was no endpoint for them
+Used the Vite dev proxy instead of CORS, so the API stays unchanged
+Reviewed the key lifecycle: it is kept on a network error or 5xx and dropped on success or 4xx, so a retry can’t create a duplicate
 
 ## What I wrote myself
 
